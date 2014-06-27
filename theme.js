@@ -26,7 +26,7 @@ define([
 	"require",
 	"requirejs-dplugins/has",
 	"module",
-	"./css"		// listed here for builder, so delite/css is included into the layer
+	"./load-css"		// listed here for builder, so delite/css is included into the layer
 ], function (req, has, module) {
 
 	"use strict";
@@ -105,14 +105,14 @@ define([
 		 */
 		load: function (logicalPaths, require, onload) {
 			// Add CSS file which contains definitions global to the theme.
-			logicalPaths = "./themes/{{theme}}/global_css" + (logicalPaths ? "," + logicalPaths : "");
+			logicalPaths = "./themes/{{theme}}/global" + (logicalPaths ? "," + logicalPaths : "");
 
 			// Convert list of logical paths into list of actual paths
 			// ex: Button/css/{{theme}}/Button --> Button/css/ios/Button
 			var actualPaths = logicalPaths.replace(/{{theme}}/g, load.getTheme());
 
 			// Make single call to css! plugin to load resources in order specified
-			req([ "./css!" + actualPaths ], function () {
+			req([ "./load-css!" + actualPaths ], function () {
 				onload(arguments);
 			});
 		}
