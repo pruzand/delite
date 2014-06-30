@@ -22,7 +22,7 @@ define([
 	}
 
 	registerSuite({
-		name: "css",
+		name: "load-css",
 
 		setup: function () {
 			// For testing that css! loaded styles don't override user-defined styles
@@ -128,24 +128,6 @@ define([
 					assert.strictEqual(getComputedStyle(window.test3).borderLeftWidth, "3px", "test3 border-width");
 					assert.strictEqual(getComputedStyle(window.userDefined).borderLeftWidth, "4px",
 						"userDefined border-width");
-				}), 10);
-			}));
-
-			return d;
-		},
-
-		javascript: function () {
-			var d = this.async(10000);
-
-			// Test loading JS file generated from CSS file
-			require(["delite/css!delite/tests/unit/css/specialChars_css"], d.rejectOnError(function () {
-				setTimeout(d.callback(function () {
-					// specialChars defines the .native and .encoded classes with the same ::before content.
-					// Check that content is defined correctly for each of those classes.
-					// Hard to test directly, but we can check that each class produces the same width <span>.
-					assert(window.native.offsetWidth > 0, "native content appears");
-					assert(window.encoded.offsetWidth > 0, "encoded content appears");
-					assert.strictEqual(window.native.offsetWidth, window.encoded.offsetWidth, "same width");
 				}), 10);
 			}));
 
