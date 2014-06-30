@@ -86,7 +86,7 @@ define([
 		head = doc && (doc.head || (doc.head = doc.getElementsByTagName("head")[0]));
 
 	has.add("event-link-onload", function (global) {
-		return global.document && global.document.createElement("link").onload === null
+		return global.document && global.document[createElement]("link").onload === null
 			// safari lies about the onload event
 			// PR: needed for Android Stock Browser...
 			&& !navigator.userAgent.match(/AppleWebKit/);
@@ -233,7 +233,8 @@ define([
 				if (cached) {
 					switch (cached.s) {
 					case "loaded":
-						return loaded(params);
+						loaded(params);
+						continue;
 					case "injected":
 						// if the link has been injected in a previous load() call but not yet loaded,
 						// we register the loaded callback of this module to get called when the injected css will be

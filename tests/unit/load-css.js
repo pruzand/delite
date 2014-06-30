@@ -12,8 +12,12 @@ define([
 	function getStyles() {
 		// summary:
 		//		Debugging method to get all the styles in the document.
-		return Array.prototype.map.call(document.getElementsByTagName("style"), function (s) {
-			return "<style>\n" + s.innerHTML.substr(0, 100) + "\n</style>";
+		var sheets = document.styleSheets;
+		return Array.prototype.map.call(sheets, function (s) {
+			var rules = s.cssRules || s.rules;
+			return Array.prototype.map.call(rules, function (r) {
+				return r.cssText;
+			});
 		}).join("\n");
 	}
 
@@ -92,7 +96,7 @@ define([
 			// Load another modules that uses delite/css! to load the same test1.css,
 			// just to triple check that the CSS doesn't get reloaded
 			require([
-				"./resources/TestCssWidget3"
+				"./resources/TestLoadCssWidget3"
 			], d.callback(function () {
 				assert.strictEqual(getStyles().match(/test1/g).length, 1, "test1.css inserted once");
 			}));
@@ -107,7 +111,7 @@ define([
 			// Make sure they appear in the specified order and that already loaded test1.css isn't reloaded.
 			// Also tests that the new style nodes occur before the user defined style nodes.
 			require([
-				"delite/css!delite/tests/unit/css/test2.css," +
+				"delite/load-css!delite/tests/unit/css/test2.css," +
 				"delite/tests/unit/css/test1.css," +
 				"delite/tests/unit/css/test3.css"
 			], d.rejectOnError(function () {
