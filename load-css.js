@@ -179,7 +179,12 @@ define([
 	/***** finally! the actual plugin *****/
 	return {
 
-		load: function (resourceDef, require, callback) {
+		load: function (resourceDef, require, callback, loaderConfig) {
+			if (loaderConfig.isBuild) {
+				callback();
+				return;
+			}
+		
 			var resources = resourceDef.split(","),
 				config = module.config(),
 				loadingCount = resources.length,
@@ -236,6 +241,9 @@ define([
 				// hook up load detector(s)
 				loadDetector(params, loaded);
 				// go!
+				var doc = document;
+				var head = doc && (doc.head || (doc.head = doc.getElementsByTagName("head")[0]));
+
 				link.href = url;
 				head.insertBefore(link, lastInsertedLink ? lastInsertedLink.nextSibling : head.firstChild);
 				lastInsertedLink = link;
