@@ -59,49 +59,37 @@ define([
 	 *      define(['css!some/folder/file'], {}); // wait for some/folder/file.css
 	 *
 	 * Tested in:
-	 *      Firefox 1.5, 2.0, 3.0, 3.5, 3.6, and 4.0b6
-	 *      Safari 3.0.4, 3.2.1, 5.0
-	 *      Chrome 7 (8+ is partly b0rked)
-	 *      Opera 9.52, 10.63, and Opera 11.00
-	 *      IE 6, 7, and 8
-	 *      Netscape 7.2 (WTF? SRSLY!)
-	 * Does not work in Safari 2.x :(
-	 * In Chrome 8+, there's no way to wait for cross-domain (XD) stylesheets.
-	 * See comments in the code below.
-	 * TODO: figure out how to be forward-compatible when browsers support HTML5's
-	 *  load handler without breaking IE and Opera
+	 *      Firefox 28+
+	 *      Safari 6+
+	 *      Chrome 33+
+	 *      IE 9+
+	 *      Android 4.x
 	 */
 
 
 	var
-	// compressibility shortcuts
-		onreadystatechange = "onreadystatechange",
-		onload = "onload",
-		createElement = "createElement",
 	// failed is true if RequireJS threw an exception
 		failed = false,
-		doc = document,
 		cache = {},
 		lastInsertedLink,
-		head = doc && (doc.head || (doc.head = doc.getElementsByTagName("head")[0]));
+		head = document && (document.head || document.getElementsByTagName("head")[0]);
 
 	has.add("event-link-onload", function (global) {
-		return global.document && global.document[createElement]("link").onload === null
-			// safari lies about the onload event
-			// PR: needed for Android Stock Browser...
-			&& !navigator.userAgent.match(/AppleWebKit/);
+		var wk = navigator.userAgent.match(/AppleWebKit\/([\d.]+)/);
+		return global.document && global.document.createElement("link").onload === null
+			// PR: needed for webkit browser (actually Android Stock Browser...)
+			&& wk && (parseInt(wk[1], 10) > 535);
 	});
 
-	function createLink(doc) {
-		var link = doc[createElement]("link");
+	function createLink() {
+		var link = document.createElement("link");
 		link.rel = "stylesheet";
 		link.type = "text/css";
 		return link;
 	}
 
 	function nameWithExt(name, defaultExt) {
-		return name.lastIndexOf(".") <= name.lastIndexOf("/") ?
-			name + "." + defaultExt : name;
+		return (/\.[^/]*$/.test(name)) ? name : name + "." + defaultExt;
 	}
 
 	var loadDetector = function (params, cb) {
@@ -122,7 +110,7 @@ define([
 		function loadHandler(params, cb) {
 			// We're using "readystatechange" because IE and Opera happily support both
 			var link = params.link;
-			link[onreadystatechange] = link[onload] = function () {
+			link.onreadystatechange = link.onload = function () {
 				if (!link.readyState || link.readyState === "complete") {
 					has.add("event-link-onload", true, true, true);
 					cleanup(params);
@@ -165,7 +153,7 @@ define([
 
 		function cleanup(params) {
 			var link = params.link;
-			link[onreadystatechange] = link[onload] = null;
+			link.onreadystatechange = link.onload = null;
 		}
 
 		// It would be nice to use onload everywhere, but the onload handler
@@ -222,7 +210,7 @@ define([
 				var
 					name = resourceDef,
 					url = nameWithExt(require["toUrl"](name), "css"),
-					link = createLink(doc),
+					link = createLink(),
 				// TODO PR: should we still support these options ?
 					params = {
 						link: link,

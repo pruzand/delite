@@ -7,7 +7,7 @@ define([
 	"dojo/fx/easing",
 	"delite/Widget",
 	"delite/Invalidating",
-	"delite/theme!./Scrollable/themes/{{theme}}/Scrollable_css"
+	"delite/theme!./Scrollable/themes/{{theme}}/Scrollable"
 ], function (dcl, dom, domClass, baseFx, easing, Widget, Invalidating) {
 
 	/**
