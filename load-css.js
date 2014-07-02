@@ -72,7 +72,9 @@ define([
 		failed = false,
 		cache = {},
 		lastInsertedLink,
-		head = document && (document.head || document.getElementsByTagName("head")[0]);
+	// build variables
+		loadList = [],
+		writePluginFiles;
 
 	has.add("event-link-onload", function (global) {
 		var wk = navigator.userAgent.match(/AppleWebKit\/([\d.]+)/);
@@ -176,6 +178,66 @@ define([
 		}
 	};
 
+	var buildFunctions = {
+		writeConfig: function (write, mid, layerPath, loadList) {
+			var cssConf = {
+				config: {}
+			};
+			cssConf.config[mid] = {
+				layersMap: {}
+			};
+			cssConf.config[mid].layersMap[layerPath] = loadList; 
+			
+			// Write css config on the layer
+			write("require.config(" + JSON.stringify(cssConf) + ");");
+		},
+
+		writeLayer: function (writePluginFiles, CleanCSS, dest, loadList) {
+			var result = "";
+			loadList.forEach(function (src) {
+				result += new CleanCSS({
+					relativeTo: "./",
+					target: dest
+				}).minify("@import url("+src+");");
+			});
+			writePluginFiles(dest, result);
+		},
+
+		buildLoadList: function (list, logicalPaths) {
+			var paths = logicalPaths.split(/, */);
+			paths.forEach(function (path) {
+				if (list.indexOf(path) === -1) {
+					list.push(path);
+				}
+			});
+		},
+
+		getLayersToLoad: function (layersMap, paths) {
+			function normalizeLayersMap(layersMap) {
+				var result = {};
+				for (var layer in layersMap) {
+					layersMap[layer].forEach(function (bundle) {
+						result[bundle] = layer;
+					});
+				}
+				return result;
+			}
+
+			var layersMap = normalizeLayersMap(layersMap);
+			var paths = paths.split(/, */);
+			var layersToLoad = [];
+			
+			paths = paths.filter(function(path){
+				if (layersMap[path]) {
+					layersToLoad.push(layersMap[path]);
+					return false;
+				}
+				return true;
+			});
+			return paths.concat(layersToLoad).join(",");
+		}
+	};
+	
 	/***** finally! the actual plugin *****/
 	return {
 		/**
@@ -189,12 +251,17 @@ define([
 		
 		load: function (resourceDef, require, callback, loaderConfig) {
 			if (loaderConfig.isBuild) {
+				buildFunctions.buildLoadList(loadList, resourceDef);
 				callback();
 				return;
 			}
 		
+			var config = module.config();
+			if (config.layersMap) {
+				resourceDef = buildFunctions.getLayersToLoad(config.layersMap, resourceDef);
+			}			
+			
 			var resources = resourceDef.split(","),
-				config = module.config(),
 				loadingCount = resources.length,
 
 			// all detector functions must ensure that this function only gets
@@ -256,6 +323,33 @@ define([
 				head.insertBefore(link, lastInsertedLink ? lastInsertedLink.nextSibling : head.firstChild);
 				lastInsertedLink = link;
 			}
+		},
+		
+		writeFile: function (pluginName, resource, require, write) {
+			writePluginFiles = write;
+		},
+		
+		onLayerEnd: function (write, data) {
+			function getLayerPath() {
+				return data.path.replace(/^(?:\.\/)?(([^\/]*\/)*)[^\/]*$/, "$1css/layer.css");
 		}
+		
+			if (data.name && data.path) {
+				var CleanCSS = require("clean-css");
+				var dest = getLayerPath();
+				
+				// Write layer file
+				buildFunctions.writeLayer(writePluginFiles, CleanCSS, dest, loadList)
+				
+				// Write css config on the layer
+				buildFunctions.writeConfig(write, module.id, dest, loadList);
+				
+				// Reset loadList
+				loadList = [];
+			}
+		},
+		
+		// Expose build functions to be used by delite/theme
+		buildFunctions: buildFunctions
 	};
 });
