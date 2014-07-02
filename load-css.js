@@ -186,7 +186,7 @@ define([
 			cssConf.config[mid] = {
 				layersMap: {}
 			};
-			cssConf.config[mid].layersMap[layerPath] = loadList; 
+			cssConf.config[mid].layersMap[layerPath] = loadList;
 			
 			// Write css config on the layer
 			write("require.config(" + JSON.stringify(cssConf) + ");");
@@ -198,7 +198,7 @@ define([
 				result += new CleanCSS({
 					relativeTo: "./",
 					target: dest
-				}).minify("@import url("+src+");");
+				}).minify("@import url(" + src + ");");
 			});
 			writePluginFiles(dest, result);
 		},
@@ -223,11 +223,11 @@ define([
 				return result;
 			}
 
-			var layersMap = normalizeLayersMap(layersMap);
-			var paths = paths.split(/, */);
+			layersMap = normalizeLayersMap(layersMap);
+			paths = paths.split(/, */);
 			var layersToLoad = [];
 			
-			paths = paths.filter(function(path){
+			paths = paths.filter(function (path) {
 				if (layersMap[path]) {
 					layersToLoad.push(layersMap[path]);
 					return false;
@@ -248,7 +248,7 @@ define([
 		normalize: function (resourceDef, normalize) {
 			return resourceDef.split(/, */).map(normalize).join(",");
 		},
-		
+		/* jshint maxcomplexity:15 */
 		load: function (resourceDef, require, callback, loaderConfig) {
 			if (loaderConfig.isBuild) {
 				buildFunctions.buildLoadList(loadList, resourceDef);
@@ -259,7 +259,7 @@ define([
 			var config = module.config();
 			if (config.layersMap) {
 				resourceDef = buildFunctions.getLayersToLoad(config.layersMap, resourceDef);
-			}			
+			}
 			
 			var resources = resourceDef.split(","),
 				loadingCount = resources.length,
@@ -324,7 +324,7 @@ define([
 				lastInsertedLink = link;
 			}
 		},
-		
+		/* jshint maxcomplexity:10 */
 		writeFile: function (pluginName, resource, require, write) {
 			writePluginFiles = write;
 		},
@@ -332,14 +332,14 @@ define([
 		onLayerEnd: function (write, data) {
 			function getLayerPath() {
 				return data.path.replace(/^(?:\.\/)?(([^\/]*\/)*)[^\/]*$/, "$1css/layer.css");
-		}
+			}
 		
 			if (data.name && data.path) {
 				var CleanCSS = require("clean-css");
 				var dest = getLayerPath();
 				
 				// Write layer file
-				buildFunctions.writeLayer(writePluginFiles, CleanCSS, dest, loadList)
+				buildFunctions.writeLayer(writePluginFiles, CleanCSS, dest, loadList);
 				
 				// Write css config on the layer
 				buildFunctions.writeConfig(write, module.id, dest, loadList);

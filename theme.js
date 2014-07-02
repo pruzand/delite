@@ -136,12 +136,13 @@ define([
 		
 		onLayerEnd: function (write, data) {
 			function getLayerPath(theme) {
-				return data.path.replace(/^(?:\.\/)?(([^\/]*\/)*)[^\/]*$/, "$1themes/layer_" + (theme || "{{theme}}") + ".css");
+				var directoryRE = /^(?:\.\/)?(([^\/]*\/)*)[^\/]*$/;
+				return data.path.replace(directoryRE, "$1themes/layer_" + (theme || "{{theme}}") + ".css");
 			}
 
 			if (data.name && data.path) {
 				var CleanCSS = require("clean-css");
-				load.themeMap.forEach(function(theme){
+				load.themeMap.forEach(function (theme) {
 					var themeDir = theme[1];
 					var dest = getLayerPath(themeDir);
 					var themedLoadList = loadList.map(function (path) {
