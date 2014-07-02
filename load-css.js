@@ -178,7 +178,15 @@ define([
 
 	/***** finally! the actual plugin *****/
 	return {
-
+		/**
+		 * Convert relative paths to absolute ones.   By default only the first path (in the comma
+		 * separated list) is converted.
+		 * @private
+		 */
+		normalize: function (resourceDef, normalize) {
+			return resourceDef.split(/, */).map(normalize).join(",");
+		},
+		
 		load: function (resourceDef, require, callback, loaderConfig) {
 			if (loaderConfig.isBuild) {
 				callback();
@@ -233,7 +241,7 @@ define([
 						// we register the loaded callback of this module to get called when the injected css will be
 						// loaded, and process the next resourceDef, if any.
 						var f = loaded.bind(this, params);
-						cached.cbs ? cached.cbs.push[f] : (cached.cbs = [f]);
+						cached.cbs ? cached.cbs.push(f) : (cached.cbs = [f]);
 						continue;
 					}
 				}

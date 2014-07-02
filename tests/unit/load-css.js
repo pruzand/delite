@@ -104,6 +104,22 @@ define([
 			return d;
 		},
 
+		concurrent: function () {
+			var d = this.async(10000);
+
+			// Load two modules that both use delite/css! to load test1.css
+			require([
+				"./resources/TestLoadCssWidget4"
+			], d.callback(function () {
+				// test4.css should be automatically loaded (but just once, not twice) by the time
+				// this require() call completes. There will be an error if not all the callbacks for
+				// each requests of css/test1 are called.
+				assert.strictEqual(getStyles().match(/test4/g).length, 1, "test4.css inserted once");
+			}));
+
+			return d;
+		},
+
 		multiple: function () {
 			var d = this.async(10000);
 
