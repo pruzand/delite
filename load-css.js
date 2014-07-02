@@ -36,10 +36,6 @@ define([
 	 * fully processing the rest of the importing stylesheet. Therefore, we
 	 * don't need to find and wait for any @import rules explicitly.
 	 *
-	 * Note #2: for Opera compatibility, stylesheets must have at least one rule.
-	 * AFAIK, there's no way to tell the difference between an empty sheet and
-	 * one that isn't finished loading in Opera (XD or same-domain).
-	 *
 	 * Global configuration options:
 	 *
 	 * cssWatchPeriod: if direct load-detection techniques fail, this option
@@ -64,15 +60,17 @@ define([
 	 *      Chrome 33+
 	 *      IE 9+
 	 *      Android 4.x
+	 *      Windows Phone 8.x
 	 */
-
 
 	var
 	// failed is true if RequireJS threw an exception
 		failed = false,
 		cache = {},
 		lastInsertedLink,
-		head = document && (document.head || document.getElementsByTagName("head")[0]);
+	// build variables
+		loadList = [],
+		writePluginFiles;
 
 	has.add("event-link-onload", function (global) {
 		var wk = navigator.userAgent.match(/AppleWebKit\/([\d.]+)/);
@@ -176,42 +174,119 @@ define([
 		}
 	};
 
+	var buildFunctions = {
+		writeConfig: function (write, mid, layerPath, loadList) {
+			var cssConf = {
+				config: {}
+			};
+			cssConf.config[mid] = {
+				layersMap: {}
+			};
+			cssConf.config[mid].layersMap[layerPath] = loadList;
+			
+			// Write css config on the layer
+			write("require.config(" + JSON.stringify(cssConf) + ");");
+		},
+
+		writeLayer: function (writePluginFiles, CleanCSS, dest, loadList) {
+			var result = "";
+			loadList.forEach(function (src) {
+				result += new CleanCSS({
+					relativeTo: "./",
+					target: dest
+				}).minify("@import url(" + src + ");");
+			});
+			writePluginFiles(dest, result);
+		},
+
+		buildLoadList: function (list, logicalPaths) {
+			var paths = logicalPaths.split(/, */);
+			paths.forEach(function (path) {
+				if (list.indexOf(path) === -1) {
+					list.push(path);
+				}
+			});
+		},
+
+		getLayersToLoad: function (layersMap, paths) {
+			function normalizeLayersMap(layersMap) {
+				var result = {};
+				for (var layer in layersMap) {
+					layersMap[layer].forEach(function (bundle) {
+						result[bundle] = layer;
+					});
+				}
+				return result;
+			}
+
+			layersMap = normalizeLayersMap(layersMap);
+			paths = paths.split(/, */);
+			var layersToLoad = [];
+			
+			paths = paths.filter(function (path) {
+				if (layersMap[path]) {
+					layersToLoad.push(layersMap[path]);
+					return false;
+				}
+				return true;
+			});
+			return paths.concat(layersToLoad).join(",");
+		}
+	};
+	
 	/***** finally! the actual plugin *****/
 	return {
+		/**
+		 * Convert relative paths to absolute ones.   By default only the first path (in the comma
+		 * separated list) is converted.
+		 * @private
+		 */
+		normalize: function (resourceDef, normalize) {
+			return resourceDef.split(/, */).map(normalize).join(",");
+		},
 
-		load: function (resourceDef, require, callback) {
+		load: function (resourceDef, require, callback, loaderConfig) {
+			if (loaderConfig.isBuild) {
+				buildFunctions.buildLoadList(loadList, resourceDef);
+				callback();
+				return;
+			}
+
+			var config = module.config();
+			if (config.layersMap) {
+				resourceDef = buildFunctions.getLayersToLoad(config.layersMap, resourceDef);
+			}
+
 			var resources = resourceDef.split(","),
-				config = module.config(),
-				loadingCount = resources.length,
+				loadingCount = resources.length;
 
 			// all detector functions must ensure that this function only gets
 			// called once per stylesheet!
-				loaded = function (params) {
-					// load/error handler may have executed before stylesheet is
-					// fully parsed / processed in Opera, so use setTimeout.
-					// Opera will process before the it next enters the event loop
-					// (so 0 msec is enough time).
-					var cached = cache[params.url];
-					cached.s = "loaded";
-					var cbs = cached.cbs;
-					delete cached.cbs;
-					if (cbs) {
-						cbs.forEach(function (f) { f(); });
-					}
-					// if all stylesheets have been loaded, then call the plugin callback
-					if (--loadingCount === 0) {
-						callback(link.sheet || link.styleSheet);
-					}
-				};
+			function loaded(params) {
+				// load/error handler may have executed before stylesheet is
+				// fully parsed / processed in Opera, so use setTimeout.
+				// Opera will process before the it next enters the event loop
+				// (so 0 msec is enough time).
+				var cached = cache[params.url];
+				cached.s = "loaded";
+				var cbs = cached.cbs;
+				delete cached.cbs;
+				if (cbs) {
+					cbs.forEach(function (f) { f(); });
+				}
+				// if all stylesheets have been loaded, then call the plugin callback
+				if (--loadingCount === 0) {
+					callback(link.sheet || link.styleSheet);
+				}
+			}
 
 			// after will become truthy once the loop executes a second time
 			for (var i = 0, after; i < resources.length; i++, after = url) {
 				resourceDef = resources[i];
-				var
-					name = resourceDef,
-					url = nameWithExt(require["toUrl"](name), "css"),
+				var name = resourceDef,
+					url = nameWithExt(require.toUrl(name), "css"),
 					link = createLink(),
-				// TODO PR: should we still support these options ?
+					// TODO PR: should we still support these options ?
 					params = {
 						link: link,
 						url: url,
@@ -228,7 +303,7 @@ define([
 						// we register the loaded callback of this module to get called when the injected css will be
 						// loaded, and process the next resourceDef, if any.
 						var f = loaded.bind(this, params);
-						cached.cbs ? cached.cbs.push[f] : (cached.cbs = [f]);
+						cached.cbs ? cached.cbs.push(f) : (cached.cbs = [f]);
 						continue;
 					}
 				}
@@ -236,10 +311,36 @@ define([
 				// hook up load detector(s)
 				loadDetector(params, loaded);
 				// go!
+				var head = document.head || document.getElementsByTagName("head")[0];
 				link.href = url;
 				head.insertBefore(link, lastInsertedLink ? lastInsertedLink.nextSibling : head.firstChild);
 				lastInsertedLink = link;
 			}
-		}
+		},
+		
+		writeFile: function (pluginName, resource, require, write) {
+			writePluginFiles = write;
+		},
+		
+		onLayerEnd: function (write, data) {
+			function getLayerPath() {
+				return data.path.replace(/^(?:\.\/)?(([^\/]*\/)*)[^\/]*$/, "$1css/layer.css");
+			}
+
+			if (data.name && data.path) {
+				var CleanCSS = require("clean-css");
+				var dest = getLayerPath();
+
+				// Write layer file
+				buildFunctions.writeLayer(writePluginFiles, CleanCSS, dest, loadList);
+				// Write css config on the layer
+				buildFunctions.writeConfig(write, module.id, dest, loadList);
+				// Reset loadList
+				loadList = [];
+			}
+		},
+		
+		// Expose build functions to be used by delite/theme
+		buildFunctions: buildFunctions
 	};
 });
